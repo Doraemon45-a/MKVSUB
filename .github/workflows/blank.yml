@@ -1,4 +1,4 @@
-name: Convert MKV to MP4 and Upload to Google Drive
+name: Convert MKV to MP4 and NonCrop
 
 on:
   workflow_dispatch:
