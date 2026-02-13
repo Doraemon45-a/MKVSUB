@@ -11,7 +11,7 @@ on:
       output_name:
         description: "Nama file output MP4 (tanpa ekstensi)"
         required: true
-        default: "video"
+        default: "TipiStream."
 
       drive_path:
         description: "Path folder tujuan di Google Drive"
@@ -59,7 +59,7 @@ jobs:
       - name: Convert MKV to MP4
         run: |
           ffmpeg -i input.mkv \
-          -vf "scale=1920:1080" \
+          -vf "crop=1920:818:0:140,scale=1920:1080" \
           -r 24 \
           -c:v libx264 -preset ${{ github.event.inputs.ffmpeg_preset }} -crf 24 \
           -c:a aac -b:a 160k -ac 2 -af "volume=2.5" \
