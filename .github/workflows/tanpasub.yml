@@ -1,4 +1,4 @@
-name: Convert MKV to MP4
+name: Convert MKV to MP4 Non Sub
 
 on:
   workflow_dispatch:
