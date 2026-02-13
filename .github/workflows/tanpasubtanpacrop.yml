@@ -59,7 +59,7 @@ jobs:
       - name: Convert MKV to MP4
         run: |
           ffmpeg -i input.mkv \
-          -vf "crop=1920:818:0:140,scale=1920:1080" \
+          -vf "scale=1920:1080" \
           -r 24 \
           -c:v libx264 -preset ${{ github.event.inputs.ffmpeg_preset }} -crf 24 \
           -c:a aac -b:a 160k -ac 2 -af "volume=2.5" \
