@@ -1,0 +1,96 @@
+name: Convert MKV to MP4 Non Sub 2
+
+on:
+  workflow_dispatch:
+    inputs:
+      source_url:
+        description: "URL file MKV"
+        required: true
+        default: "https://example.com/video.mkv"
+
+      output_name:
+        description: "Nama file output MP4 (tanpa ekstensi)"
+        required: true
+        default: "TipiStream."
+
+      drive_path:
+        description: "Path folder tujuan di Google Drive"
+        required: true
+        default: "ConvertedVideos"
+
+      ffmpeg_preset:
+        description: "FFmpeg preset (ultrafast/superfast/veryfast/fast/medium)"
+        required: false
+        default: "veryfast"
+
+      rclone_transfers:
+        description: "Jumlah transfer concurrent rclone"
+        required: false
+        default: "4"
+
+jobs:
+  convert_and_upload:
+    runs-on: ubuntu-latest
+
+    steps:
+      # 1️⃣ Checkout repository
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # 2️⃣ Install dependencies
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg rclone curl
+
+      # 3️⃣ Setup rclone config
+      - name: Setup rclone config (base64)
+        run: |
+          mkdir -p ~/.config/rclone
+          echo "${{ secrets.RCLONE_CONF_B64 }}" | base64 --decode > ~/.config/rclone/rclone.conf
+          rclone listremotes
+
+      # 4️⃣ Download MKV
+      - name: Download MKV file
+        run: |
+          curl -L -o input.mkv "${{ github.event.inputs.source_url }}"
+
+      # 5️⃣ Convert MKV → MP4 (NO SUBTITLE)
+      - name: Convert MKV to MP4
+        run: |
+          ffmpeg -i input.mkv \
+          -vf "crop=1920:818:0:140,scale=1920:1080" \
+          -r 24 \
+          -c:v libx264 -preset ${{ github.event.inputs.ffmpeg_preset }} -crf 24 \
+          -c:a aac -b:a 160k -ac 2 -af "volume=2.5" \
+          -movflags +faststart "${{ github.event.inputs.output_name }}.mp4"
+
+      # 6️⃣ Upload ke Google Drive
+      - name: Upload to Google Drive
+        run: |
+          rclone copy "${{ github.event.inputs.output_name }}.mp4" \
+            "gdrive:/${{ github.event.inputs.drive_path }}/" \
+            -P --transfers=${{ github.event.inputs.rclone_transfers }} --checkers=8
+
+      # 7️⃣ Validasi hasil upload
+      - name: List files in Google Drive
+        run: |
+          rclone lsl "gdrive:/${{ github.event.inputs.drive_path }}/"
+
+      # ✅ Telegram SUCCESS
+      - name: Telegram notify SUCCESS
+        if: success()
+        run: |
+          curl -s -X POST "https://api.telegram.org/bot${{ secrets.TG_BOT_TOKEN }}/sendMessage" \
+          -d chat_id="${{ secrets.TG_CHAT_ID }}" \
+          -d parse_mode="HTML" \
+          -d text="✅ <b>SUCCESS</b>%0A🎬 File: <code>${{ github.event.inputs.output_name }}.mp4</code>%0A📂 Drive: <code>${{ github.event.inputs.drive_path }}</code>"
+
+      # ❌ Telegram FAILED
+      - name: Telegram notify FAILED
+        if: failure()
+        run: |
+          curl -s -X POST "https://api.telegram.org/bot${{ secrets.TG_BOT_TOKEN }}/sendMessage" \
+          -d chat_id="${{ secrets.TG_CHAT_ID }}" \
+          -d parse_mode="HTML" \
+          -d text="❌ <b>FAILED</b>%0A🎬 File: <code>${{ github.event.inputs.output_name }}.mp4</code>%0A🔗 Source:%0A<code>${{ github.event.inputs.source_url }}</code>"
